@@ -27,6 +27,8 @@ public abstract class Weapon extends BPvPItem implements IWeapon {
     protected double initialEnergyCost;
     protected double baseDamage;
     protected double cooldown;
+    protected int maxCharges;
+    protected double rechargeSeconds;
 
     protected Weapon(BPvPPlugin plugin, String key) {
         this(key, plugin, null);
@@ -97,6 +99,10 @@ public abstract class Weapon extends BPvPItem implements IWeapon {
         }
         if (this instanceof CooldownWeapon) {
             cooldown = getConfig("cooldown", 10.0, Double.class);
+        }
+        if (this instanceof ChargeableWeapon) {
+            maxCharges = getConfig("maxCharges", 1, Integer.class);
+            rechargeSeconds = getConfig("rechargeSeconds", 10.0, Double.class);
         }
 
         loadWeaponConfig();

@@ -87,3 +87,10 @@ thunderclap_aegis:
   collidePulseRadius: 7.0
   energyOnCollide: 12.5
   chargeDamage: 7.0
+spiders_fang:
+  enabled: true
+  baseDamage: 7.0
+  webPounceStrength: 2.0
+  maxCharges: 3
+  rechargeSeconds: 5.0
+  fallDamageLimit: 10.0
