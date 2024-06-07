@@ -4,6 +4,7 @@ import com.google.inject.Singleton;
 import lombok.CustomLog;
 import lombok.Getter;
 import me.mykindos.betterpvp.core.combat.weapon.types.ChannelWeapon;
+import me.mykindos.betterpvp.core.combat.weapon.types.ChargeableWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.CooldownWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.LegendaryWeapon;
 import me.mykindos.betterpvp.core.components.champions.weapons.IWeapon;
