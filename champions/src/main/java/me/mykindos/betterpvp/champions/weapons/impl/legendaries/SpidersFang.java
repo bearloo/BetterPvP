@@ -5,6 +5,7 @@ import com.google.inject.Singleton;
 import me.mykindos.betterpvp.champions.Champions;
 import me.mykindos.betterpvp.champions.champions.ChampionsManager;
 import me.mykindos.betterpvp.core.client.gamer.Gamer;
+import me.mykindos.betterpvp.core.cooldowns.CooldownManager;
 import me.mykindos.betterpvp.core.client.repository.ClientManager;
 import me.mykindos.betterpvp.core.combat.events.CustomDamageEvent;
 import me.mykindos.betterpvp.core.combat.events.PreCustomDamageEvent;
@@ -54,9 +55,9 @@ public class SpidersFang extends ChargeableWeapon implements LegendaryWeapon, Li
     private final ChampionsManager championsManager;
 
     @Inject
-    public SpidersFang(Champions champions, Champions champions1, ChampionsManager championsManager, ClientManager clientManager) {
-        super(champions, /* championsManager, */ clientManager, "spiders_fang");
-        this.champions = champions1;
+    public SpidersFang(Champions champions, CooldownManager cooldownManager, ChampionsManager championsManager, ClientManager clientManager) {
+        super(champions, cooldownManager, clientManager, "spiders_fang");
+        this.champions = champions;
         this.championsManager = championsManager;
     }
 

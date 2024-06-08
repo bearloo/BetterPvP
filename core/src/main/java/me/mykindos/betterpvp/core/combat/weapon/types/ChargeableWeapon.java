@@ -1,12 +1,16 @@
 package me.mykindos.betterpvp.core.combat.weapon.types;
 
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
 import me.mykindos.betterpvp.core.client.repository.ClientManager;
 import me.mykindos.betterpvp.core.client.gamer.Gamer;
+import me.mykindos.betterpvp.core.cooldowns.CooldownManager;
 import me.mykindos.betterpvp.core.combat.weapon.Weapon;
 import me.mykindos.betterpvp.core.combat.weapon.data.WeaponChargeData;
 import me.mykindos.betterpvp.core.components.champions.weapons.IWeapon;
 import me.mykindos.betterpvp.core.framework.BPvPPlugin;
 import me.mykindos.betterpvp.core.framework.updater.UpdateEvent;
+import me.mykindos.betterpvp.core.listener.BPvPListener;
 import me.mykindos.betterpvp.core.utilities.UtilMessage;
 import me.mykindos.betterpvp.core.utilities.model.display.PermanentComponent;
 import net.kyori.adventure.text.Component;
@@ -24,10 +28,14 @@ import java.util.UUID;
 import java.util.Iterator;
 import java.util.WeakHashMap;
 
+@Singleton
+@BPvPListener
 public abstract class ChargeableWeapon extends Weapon implements InteractWeapon, Listener {
 
-    //protected final ChampionsManager championsManager;
+    public static boolean x = false;
+
     protected final ClientManager clientManager;
+    protected final CooldownManager cooldownManager;
 
     protected final WeakHashMap<Player, WeaponChargeData> charges = new WeakHashMap<>();
 
@@ -45,9 +53,9 @@ public abstract class ChargeableWeapon extends Weapon implements InteractWeapon,
                 .append(Component.text("\u25A0".repeat(Math.max(0, maxCharges - currentCharges))).color(NamedTextColor.RED));
     });
 
-    public ChargeableWeapon(BPvPPlugin plugin, /* ChampionsManager championsManager, */ ClientManager clientManager, String key) {
+    public ChargeableWeapon(BPvPPlugin plugin, CooldownManager cooldownManager, ClientManager clientManager, String key) {
         super(plugin, key);
-        //this.championsManager = championsManager;
+        this.cooldownManager = cooldownManager;
         this.clientManager = clientManager;
     }
 
@@ -85,7 +93,11 @@ public abstract class ChargeableWeapon extends Weapon implements InteractWeapon,
 
     @Override
     public void activate(Player player) {
-        trackCharges(player, clientManager.search().online(player).getGamer());
+        if (!x)
+        {
+            trackCharges(player, clientManager.search().online(player).getGamer());
+            x = true;
+        }
 
         if (canUse(player)) {
             WeaponChargeData data = charges.get(player);
@@ -93,7 +105,7 @@ public abstract class ChargeableWeapon extends Weapon implements InteractWeapon,
             if (data != null && data.getCharges() > 0) {
                 if (data.getCharges() >= maxCharges) {
                     // Reset recharge cooldown when using the first charge
-                    //championsManager.getCooldowns().use(player, getChargeableName(), rechargeSeconds, false, true, true);
+                    cooldownManager.use(player, getChargeableName(), rechargeSeconds, false, true, true);
                 }
 
                 data.useCharge();
@@ -108,7 +120,7 @@ public abstract class ChargeableWeapon extends Weapon implements InteractWeapon,
     }
 
     @UpdateEvent(delay = 100)
-    protected void recharge() {
+    public void recharge() {
         final Iterator<Map.Entry<Player, WeaponChargeData>> iterator = charges.entrySet().iterator();
         while (iterator.hasNext()) {
             final Map.Entry<Player, WeaponChargeData> entry = iterator.next();
@@ -120,9 +132,9 @@ public abstract class ChargeableWeapon extends Weapon implements InteractWeapon,
                 continue; // Skip if at max charges
             }
 
-            //if (!championsManager.getCooldowns().use(player, getChargeableName(), rechargeSeconds, false, true, true)) {
-            //    continue; // Skip if recharge cooldown has not expired
-            //}
+            if (!cooldownManager.use(player, getChargeableName(), rechargeSeconds, false, true, true)) {
+                continue; // Skip if recharge cooldown has not expired
+            }
 
             data.addCharge();
             notifyCharges(player, data.getCharges());
