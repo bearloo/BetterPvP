@@ -8,10 +8,12 @@ import me.mykindos.betterpvp.core.cooldowns.CooldownManager;
 import me.mykindos.betterpvp.core.combat.weapon.Weapon;
 import me.mykindos.betterpvp.core.combat.weapon.data.WeaponChargeData;
 import me.mykindos.betterpvp.core.components.champions.weapons.IWeapon;
+import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.framework.BPvPPlugin;
 import me.mykindos.betterpvp.core.framework.updater.UpdateEvent;
 import me.mykindos.betterpvp.core.listener.BPvPListener;
 import me.mykindos.betterpvp.core.utilities.UtilMessage;
+import me.mykindos.betterpvp.core.utilities.UtilServer;
 import me.mykindos.betterpvp.core.utilities.model.display.PermanentComponent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -99,6 +101,12 @@ public abstract class ChargeableWeapon extends Weapon implements InteractWeapon,
             x = true;
         }
 
+        var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, this, true));
+        if (checkUsageEvent.isCancelled()) {
+            UtilMessage.simpleMessage(player, "Restriction", "You cannot use this weapon here.");
+            return;
+        }
+
         if (canUse(player)) {
             WeaponChargeData data = charges.get(player);
 
@@ -110,7 +118,6 @@ public abstract class ChargeableWeapon extends Weapon implements InteractWeapon,
 
                 data.useCharge();
                 notifyCharges(player, data.getCharges());
-
                 doChargeAbility(player);
             }
             else {

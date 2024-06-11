@@ -31,15 +31,23 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Effect;
 import org.bukkit.Sound;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.util.Vector;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.HashSet;
+import java.util.UUID;
 import java.util.List;
+import java.util.Set;
 
 @Singleton
 @BPvPListener
@@ -47,6 +55,8 @@ public class SpidersFang extends ChargeableWeapon implements LegendaryWeapon, Li
 
     private static final String SHIFT_ABILITY_NAME = "Wall Cling";
     private static final String RIGHT_CLICK_ABILITY_NAME = "Web Pounce";
+
+    private final Set<UUID> possibleWallClingers = new HashSet<>();
 
     private double webPounceStrength;
     private double fallDamageLimit;
@@ -93,16 +103,85 @@ public class SpidersFang extends ChargeableWeapon implements LegendaryWeapon, Li
                     50L, true, true, UtilBlock::isGrounded);
         }, 3L);
 
-        // To-Do: Task for web upon landing
+        // TODO Task for web particles upon landing
+        // TODO Web nearby players in radius (slowness, mp jagged effect?)
     }
 
-    @UpdateEvent(delay = 100)
-    public void SpidersFang() {
+    @UpdateEvent
+    public void doSpidersFang() {
         if (!enabled) {
             return;
         }
 
-        // Process Wall Cling
+        final Iterator<UUID> iterator = possibleWallClingers.iterator();
+        while (iterator.hasNext()) {
+            final Player player = Bukkit.getPlayer(iterator.next());
+            if (player == null || !player.isOnline()) {
+                iterator.remove();
+                continue;
+            }
+
+            if (!isHoldingWeapon(player)) {
+                iterator.remove();
+                UtilMessage.simpleMessage(player, getSimpleName(), "Not holding");
+                continue;
+            }
+
+            if (!player.isSneaking()) {
+                iterator.remove();
+                UtilMessage.simpleMessage(player, getSimpleName(), "Not sneaking");
+                continue;
+            }
+
+            var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, this, true));
+            if (checkUsageEvent.isCancelled()) {
+                UtilMessage.simpleMessage(player, "Restriction", "You cannot use this weapon here.");
+                iterator.remove();
+                continue;
+            }
+
+            doWallCling(player);
+        }
+    }
+
+    public void doWallCling(@NotNull Player player) {
+        if (canCling(player)) {
+            Vector vec = player.getLocation().getDirection();
+            vec.setY(0);
+
+            VelocityData velocityData = new VelocityData(vec, 0, false, 0.0D, 0.0D, 0.0D, true);
+            UtilVelocity.velocity(player, null, velocityData, VelocityType.CUSTOM);
+            UtilMessage.simpleMessage(player, getSimpleName(), String.format("<green>%s <gray>is active", SHIFT_ABILITY_NAME));
+
+            // TODO Needs to be energy based
+            // TODO If player swaps handheld item while sneaking and swaps back they need to be added back to possibleWallClingers (sneak toggle not refreshed)
+
+        } else {
+            UtilMessage.simpleMessage(player, getSimpleName(), "Not clinging");
+        }
+    }
+
+    public boolean canCling(@NotNull Player player) {
+        ArrayList<Block> surrounding = UtilBlock.getBlocksSurroundingPlayer(player, false);
+        return surrounding.stream().anyMatch(block -> UtilBlock.solid(block));
+    }
+
+    @EventHandler
+    public void onSneak(PlayerToggleSneakEvent event) {
+        if (!enabled) {
+            return;
+        }
+
+        UtilMessage.simpleMessage(event.getPlayer(), getSimpleName(), "Sneak event");
+
+        final Player player = event.getPlayer();
+
+        if (event.isSneaking() && isHoldingWeapon(player)) {
+            UtilMessage.simpleMessage(event.getPlayer(), getSimpleName(), "Became active");
+            possibleWallClingers.add(player.getUniqueId());
+        } else {
+            UtilMessage.simpleMessage(event.getPlayer(), getSimpleName(), "Not holding/sneaking in sneak event");
+        }
     }
 
     @EventHandler(priority = EventPriority.LOW)

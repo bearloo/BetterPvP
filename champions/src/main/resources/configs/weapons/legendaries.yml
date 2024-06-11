@@ -92,5 +92,5 @@ spiders_fang:
   baseDamage: 7.0
   webPounceStrength: 2.0
   maxCharges: 5
-  rechargeSeconds: 3.0
-  fallDamageLimit: 10.0
+  rechargeSeconds: 3.5
+  fallDamageLimit: 15.0

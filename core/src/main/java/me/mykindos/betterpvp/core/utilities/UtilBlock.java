@@ -18,6 +18,7 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.util.BlockIterator;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -216,6 +217,46 @@ public class UtilBlock {
         return blocks;
     }
 
+    /**
+     * Returns a list of blocks surrounding the player provided
+     *
+     * @param player    The player to get surrounding blocks of
+     * @param diagonals Whether or not to include the blocks diagonal to the player
+     * @return An ArrayList of blocks that are surrounding the player provided
+     */
+    public static ArrayList<Block> getBlocksSurroundingPlayer(@NotNull Player player, boolean diagonals) {
+        Block block = player.getLocation().getBlock();
+
+        ArrayList<Block> blocks = new ArrayList<>();
+
+        if (diagonals) {
+            for (int x = -1; x <= 1; x++) {
+                for (int y = 0; y <= 1; y++) {
+                    for (int z = -1; z <= 1; z++) {
+                        if ((x == 0) && (z == 0)) {
+                            continue; // Skip blocks player is standing in
+                        } else {
+                            blocks.add(block.getRelative(x, y, z));
+                        }
+                    }
+                }
+            }
+        } else {
+            Block top = block.getRelative(BlockFace.UP);
+
+            blocks.add(block.getRelative(BlockFace.NORTH));
+            blocks.add(block.getRelative(BlockFace.SOUTH));
+            blocks.add(block.getRelative(BlockFace.EAST));
+            blocks.add(block.getRelative(BlockFace.WEST));
+
+            blocks.add(top.getRelative(BlockFace.NORTH));
+            blocks.add(top.getRelative(BlockFace.SOUTH));
+            blocks.add(top.getRelative(BlockFace.EAST));
+            blocks.add(top.getRelative(BlockFace.WEST));
+        }
+
+        return blocks;
+    }
 
     /**
      * Gets a Map of All blocks and their distance from the location provided
