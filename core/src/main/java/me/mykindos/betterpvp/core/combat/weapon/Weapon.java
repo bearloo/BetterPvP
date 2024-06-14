@@ -8,8 +8,11 @@ import me.mykindos.betterpvp.core.combat.weapon.types.ChargeableWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.CooldownWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.LegendaryWeapon;
 import me.mykindos.betterpvp.core.components.champions.weapons.IWeapon;
+import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.framework.BPvPPlugin;
 import me.mykindos.betterpvp.core.items.BPvPItem;
+import me.mykindos.betterpvp.core.utilities.UtilMessage;
+import me.mykindos.betterpvp.core.utilities.UtilServer;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -126,5 +129,22 @@ public abstract class Weapon extends BPvPItem implements IWeapon {
     @Override
     public boolean isEnabled() {
         return enabled;
+    }
+
+    @Override
+    public boolean isUsable(Player player, boolean dangerous) {
+        var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, this, dangerous));
+
+        if (checkUsageEvent.isCancelled()) {
+            UtilMessage.simpleMessage(player, "Restriction", "You cannot use <green>%s <gray>here.", getSimpleName());
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public boolean isUsable(Player player) {
+        return isUsable(player, true);
     }
 }

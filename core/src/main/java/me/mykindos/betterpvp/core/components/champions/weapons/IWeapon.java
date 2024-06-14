@@ -16,6 +16,9 @@ public interface IWeapon {
 
     boolean isEnabled();
 
+    boolean isUsable(Player player, boolean dangerous);
+    boolean isUsable(Player player);
+
     String getSimpleName();
 
     void loadConfig(BPvPPlugin plugin);

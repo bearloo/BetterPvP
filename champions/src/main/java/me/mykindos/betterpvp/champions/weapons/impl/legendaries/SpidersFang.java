@@ -9,10 +9,9 @@ import me.mykindos.betterpvp.core.cooldowns.CooldownManager;
 import me.mykindos.betterpvp.core.client.repository.ClientManager;
 import me.mykindos.betterpvp.core.combat.events.CustomDamageEvent;
 import me.mykindos.betterpvp.core.combat.events.PreCustomDamageEvent;
-import me.mykindos.betterpvp.core.combat.weapon.types.ChargeableWeapon;
+import me.mykindos.betterpvp.core.combat.weapon.types.impl.ChargeableChannelWeaponImpl;
 import me.mykindos.betterpvp.core.combat.weapon.types.LegendaryWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.data.WeaponChargeData;
-import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.energy.EnergyHandler;
 import me.mykindos.betterpvp.core.framework.updater.UpdateEvent;
 import me.mykindos.betterpvp.core.listener.BPvPListener;
@@ -40,7 +39,6 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.util.Vector;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -51,24 +49,25 @@ import java.util.Set;
 
 @Singleton
 @BPvPListener
-public class SpidersFang extends ChargeableWeapon implements LegendaryWeapon, Listener {
+public class SpidersFang extends ChargeableChannelWeaponImpl implements LegendaryWeapon, Listener {
 
     private static final String SHIFT_ABILITY_NAME = "Wall Cling";
     private static final String RIGHT_CLICK_ABILITY_NAME = "Web Pounce";
 
-    private final Set<UUID> possibleWallClingers = new HashSet<>();
-
+    private double webRadius;
     private double webPounceStrength;
     private double fallDamageLimit;
 
     private final Champions champions;
     private final ChampionsManager championsManager;
+    private final EnergyHandler energyHandler;
 
     @Inject
-    public SpidersFang(Champions champions, CooldownManager cooldownManager, ChampionsManager championsManager, ClientManager clientManager) {
+    public SpidersFang(Champions champions, CooldownManager cooldownManager, ClientManager clientManager, ChampionsManager championsManager, EnergyHandler energyHandler) {
         super(champions, cooldownManager, clientManager, "spiders_fang");
         this.champions = champions;
         this.championsManager = championsManager;
+        this.energyHandler = energyHandler;
     }
 
     @Override
@@ -92,15 +91,19 @@ public class SpidersFang extends ChargeableWeapon implements LegendaryWeapon, Li
     }
 
     @Override
-    protected void doChargeAbility(Player player) {
+    public int getInitialCharges() {
+        return maxCharges;
+    }
+
+    @Override
+    protected void useCharge(Player player) {
         VelocityData velocityData = new VelocityData(player.getLocation().getDirection(), webPounceStrength, false, 0.0D, 0.2D, 1.0D, true);
         UtilVelocity.velocity(player, null, velocityData, VelocityType.CUSTOM);
-        player.getWorld().playEffect(player.getLocation(), Effect.STEP_SOUND, 30);
-        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_SPIDER_DEATH, 0.5F, 2.0F);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_SPIDER_DEATH, 0.5F, 2.0F); // TODO Change
 
         UtilServer.runTaskLater(champions, () -> {
-            championsManager.getEffects().addEffect(player, player, EffectTypes.NO_FALL, getChargeableName(), (int)fallDamageLimit,
-                    50L, true, true, UtilBlock::isGrounded);
+            championsManager.getEffects().addEffect(player, player, EffectTypes.NO_FALL, getChargeableName(), (int)fallDamageReduction,
+                    100L, true, true, UtilBlock::isGrounded);
         }, 3L);
 
         // TODO Task for web particles upon landing
@@ -109,11 +112,11 @@ public class SpidersFang extends ChargeableWeapon implements LegendaryWeapon, Li
 
     @UpdateEvent
     public void doSpidersFang() {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
 
-        final Iterator<UUID> iterator = possibleWallClingers.iterator();
+        final Iterator<UUID> iterator = active.iterator();
         while (iterator.hasNext()) {
             final Player player = Bukkit.getPlayer(iterator.next());
             if (player == null || !player.isOnline()) {
@@ -121,22 +124,32 @@ public class SpidersFang extends ChargeableWeapon implements LegendaryWeapon, Li
                 continue;
             }
 
-            if (!isHoldingWeapon(player)) {
+            if (!isUsable()) {
                 iterator.remove();
-                UtilMessage.simpleMessage(player, getSimpleName(), "Not holding");
                 continue;
             }
 
             if (!player.isSneaking()) {
                 iterator.remove();
-                UtilMessage.simpleMessage(player, getSimpleName(), "Not sneaking");
                 continue;
             }
 
-            var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, this, true));
-            if (checkUsageEvent.isCancelled()) {
-                UtilMessage.simpleMessage(player, "Restriction", "You cannot use this weapon here.");
+            if (UtilBlock.isInLiquid(player)) {
+                UtilMessage.simpleMessage(player, getSimpleName(), "You cannot use <green>%s <gray>while in water", SHIFT_ABILITY_NAME);
                 iterator.remove();
+                continue;
+            }
+
+            if (!isHoldingWeapon(player)) {
+                continue;
+            }
+
+            if (!canCling(player)) {
+                continue;
+            }
+
+            if (!energyHandler.use(player, SHIFT_ABILITY_NAME, energyPerTick, true)) {
+                iterator.remove;
                 continue;
             }
 
@@ -144,49 +157,37 @@ public class SpidersFang extends ChargeableWeapon implements LegendaryWeapon, Li
         }
     }
 
-    public void doWallCling(@NotNull Player player) {
-        if (canCling(player)) {
-            Vector vec = player.getLocation().getDirection();
-            vec.setY(0);
+    public void doWallCling(Player player) {
+        Vector hoverVector = player.getLocation().getDirection();
+        hoverVector.setY(0); // TODO Required?
 
-            VelocityData velocityData = new VelocityData(vec, 0, false, 0.0D, 0.0D, 0.0D, true);
-            UtilVelocity.velocity(player, null, velocityData, VelocityType.CUSTOM);
-            UtilMessage.simpleMessage(player, getSimpleName(), String.format("<green>%s <gray>is active", SHIFT_ABILITY_NAME));
-
-            // TODO Needs to be energy based
-            // TODO If player swaps handheld item while sneaking and swaps back they need to be added back to possibleWallClingers (sneak toggle not refreshed)
-
-        } else {
-            UtilMessage.simpleMessage(player, getSimpleName(), "Not clinging");
-        }
+        VelocityData hoverVelocity = new VelocityData(hoverVector, 0, false, 0.0D, 0.0D, 0.0D, true);
+        UtilVelocity.velocity(player, null, hoverVelocity, VelocityType.CUSTOM);
     }
 
-    public boolean canCling(@NotNull Player player) {
+    public boolean canCling(Player player) {
         ArrayList<Block> surrounding = UtilBlock.getBlocksSurroundingPlayer(player, false);
         return surrounding.stream().anyMatch(block -> UtilBlock.solid(block));
     }
 
     @EventHandler
     public void onSneak(PlayerToggleSneakEvent event) {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
-
-        UtilMessage.simpleMessage(event.getPlayer(), getSimpleName(), "Sneak event");
 
         final Player player = event.getPlayer();
 
         if (event.isSneaking() && isHoldingWeapon(player)) {
-            UtilMessage.simpleMessage(event.getPlayer(), getSimpleName(), "Became active");
-            possibleWallClingers.add(player.getUniqueId());
+            active.add(player.getUniqueId());
         } else {
-            UtilMessage.simpleMessage(event.getPlayer(), getSimpleName(), "Not holding/sneaking in sneak event");
+            active.remove(player.getUniqueId());
         }
     }
 
     @EventHandler(priority = EventPriority.LOW)
     public void onDamage(PreCustomDamageEvent event) {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -202,7 +203,7 @@ public class SpidersFang extends ChargeableWeapon implements LegendaryWeapon, Li
     @Override
     public boolean canUse(Player player) {
         if (UtilBlock.isInLiquid(player)) {
-            UtilMessage.simpleMessage(player, getSimpleName(), String.format("You cannot use <green>%s <gray>while in water", RIGHT_CLICK_ABILITY_NAME));
+            UtilMessage.simpleMessage(player, getSimpleName(), "You cannot use <green>%s <gray>while in water", RIGHT_CLICK_ABILITY_NAME);
             return false;
         }
         return true;
@@ -210,7 +211,8 @@ public class SpidersFang extends ChargeableWeapon implements LegendaryWeapon, Li
 
     @Override
     public void loadWeaponConfig() {
+        webRadius = getConfig("webRadius", 3.0, Double.class);
         webPounceStrength = getConfig("webPounceStrength", 2.0, Double.class);
-        fallDamageLimit = getConfig("fallDamageLimit", 15.0, Double.class);
+        fallDamageReduction = getConfig("fallDamageReduction", 15.0, Double.class);
     }
 }

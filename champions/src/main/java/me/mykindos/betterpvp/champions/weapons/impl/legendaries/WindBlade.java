@@ -7,16 +7,14 @@ import me.mykindos.betterpvp.core.client.gamer.Gamer;
 import me.mykindos.betterpvp.core.client.repository.ClientManager;
 import me.mykindos.betterpvp.core.combat.events.CustomDamageEvent;
 import me.mykindos.betterpvp.core.combat.events.PreCustomDamageEvent;
-import me.mykindos.betterpvp.core.combat.weapon.types.ChannelWeapon;
+import me.mykindos.betterpvp.core.combat.weapon.types.impl.ChannelWeaponImpl;
 import me.mykindos.betterpvp.core.combat.weapon.types.InteractWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.LegendaryWeapon;
-import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.energy.EnergyHandler;
 import me.mykindos.betterpvp.core.framework.updater.UpdateEvent;
 import me.mykindos.betterpvp.core.listener.BPvPListener;
 import me.mykindos.betterpvp.core.utilities.UtilBlock;
 import me.mykindos.betterpvp.core.utilities.UtilMessage;
-import me.mykindos.betterpvp.core.utilities.UtilServer;
 import me.mykindos.betterpvp.core.utilities.UtilVelocity;
 import me.mykindos.betterpvp.core.utilities.math.VelocityData;
 import net.kyori.adventure.text.Component;
@@ -37,7 +35,7 @@ import java.util.List;
 
 @Singleton
 @BPvPListener
-public class WindBlade extends ChannelWeapon implements InteractWeapon, LegendaryWeapon, Listener {
+public class WindBlade extends ChannelWeaponImpl implements InteractWeapon, LegendaryWeapon, Listener {
 
     private double velocityStrength;
     private final EnergyHandler energyHandler;
@@ -67,12 +65,12 @@ public class WindBlade extends ChannelWeapon implements InteractWeapon, Legendar
 
     @Override
     public void activate(Player player) {
-        active.add(player.getUniqueId());
+        channel(player);
     }
 
     @UpdateEvent (priority = 99)
     public void doWindBlade() {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
         active.removeIf(uuid -> {
@@ -88,9 +86,7 @@ public class WindBlade extends ChannelWeapon implements InteractWeapon, Legendar
                 return true;
             }
 
-            var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, this, true));
-            if (checkUsageEvent.isCancelled()) {
-                UtilMessage.simpleMessage(player, "Restriction", "You cannot use this weapon here.");
+            if (!isUsable()) {
                 return true;
             }
 
@@ -98,7 +94,7 @@ public class WindBlade extends ChannelWeapon implements InteractWeapon, Legendar
                 return true;
             }
 
-            if (!energyHandler.use(player, "Wind Blade", energyPerTick, true)) {
+            if (!energyHandler.use(player, getSimpleName(), energyPerTick, true)) {
                 return true;
             }
 
@@ -113,7 +109,7 @@ public class WindBlade extends ChannelWeapon implements InteractWeapon, Legendar
 
     @EventHandler(priority = EventPriority.LOW)
     public void onDamage(PreCustomDamageEvent event) {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -128,7 +124,7 @@ public class WindBlade extends ChannelWeapon implements InteractWeapon, Legendar
 
     @EventHandler
     public void onFall(EntityDamageEvent event) {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
         if (!(event.getEntity() instanceof Player player)) return;
@@ -145,12 +141,6 @@ public class WindBlade extends ChannelWeapon implements InteractWeapon, Legendar
             return false;
         }
         return true;
-    }
-
-
-    @Override
-    public double getEnergy() {
-        return initialEnergyCost;
     }
 
     @Override

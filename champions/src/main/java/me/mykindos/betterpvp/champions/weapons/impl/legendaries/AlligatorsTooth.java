@@ -7,16 +7,14 @@ import me.mykindos.betterpvp.core.client.gamer.Gamer;
 import me.mykindos.betterpvp.core.client.repository.ClientManager;
 import me.mykindos.betterpvp.core.combat.events.CustomDamageEvent;
 import me.mykindos.betterpvp.core.combat.events.PreCustomDamageEvent;
-import me.mykindos.betterpvp.core.combat.weapon.types.ChannelWeapon;
+import me.mykindos.betterpvp.core.combat.weapon.types.impl.ChannelWeaponImpl;
 import me.mykindos.betterpvp.core.combat.weapon.types.InteractWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.LegendaryWeapon;
-import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.energy.EnergyHandler;
 import me.mykindos.betterpvp.core.framework.updater.UpdateEvent;
 import me.mykindos.betterpvp.core.listener.BPvPListener;
 import me.mykindos.betterpvp.core.utilities.UtilBlock;
 import me.mykindos.betterpvp.core.utilities.UtilMessage;
-import me.mykindos.betterpvp.core.utilities.UtilServer;
 import me.mykindos.betterpvp.core.utilities.UtilVelocity;
 import me.mykindos.betterpvp.core.utilities.math.VelocityData;
 import net.kyori.adventure.text.Component;
@@ -39,7 +37,7 @@ import java.util.UUID;
 
 @Singleton
 @BPvPListener
-public class AlligatorsTooth extends ChannelWeapon implements InteractWeapon, LegendaryWeapon, Listener {
+public class AlligatorsTooth extends ChannelWeaponImpl implements InteractWeapon, LegendaryWeapon, Listener {
     private double bonusDamage;
     private double velocityStrength;
 
@@ -69,14 +67,15 @@ public class AlligatorsTooth extends ChannelWeapon implements InteractWeapon, Le
 
     @Override
     public void activate(Player player) {
-        active.add(player.getUniqueId());
+        channel(player);
     }
 
     @UpdateEvent
     public void doAlligatorsTooth() {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
+
         final Iterator<UUID> iterator = active.iterator();
         while (iterator.hasNext()) {
             final Player player = Bukkit.getPlayer(iterator.next());
@@ -91,14 +90,12 @@ public class AlligatorsTooth extends ChannelWeapon implements InteractWeapon, Le
                 continue;
             }
 
-            var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, this, true));
-            if (checkUsageEvent.isCancelled()) {
-                UtilMessage.simpleMessage(player, "Restriction", "You cannot use this weapon here.");
+            if (!isUsable()) {
+                iterator.remove();
                 continue;
             }
 
             if (!canUse(player)) {
-                iterator.remove();
                 continue;
             }
 

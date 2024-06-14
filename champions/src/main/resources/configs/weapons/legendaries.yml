@@ -90,7 +90,10 @@ thunderclap_aegis:
 spiders_fang:
   enabled: true
   baseDamage: 7.0
+  webRadius: 3.0
   webPounceStrength: 2.0
   maxCharges: 5
-  rechargeSeconds: 3.5
-  fallDamageLimit: 15.0
+  rechargeSeconds: 3.0
+  fallDamageReduction: 15.0
+  energyPerTick: 0.5
+  initialEnergyCost: 5.0

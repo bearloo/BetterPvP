@@ -3,6 +3,7 @@ package me.mykindos.betterpvp.core.combat.weapon.data;
 import lombok.Data;
 
 @Data
+@AllArgsConstructor
 public class WeaponChargeData {
 
     private int charges = 0;
