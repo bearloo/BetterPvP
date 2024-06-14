@@ -7,14 +7,16 @@ import me.mykindos.betterpvp.core.client.gamer.Gamer;
 import me.mykindos.betterpvp.core.client.repository.ClientManager;
 import me.mykindos.betterpvp.core.combat.events.CustomDamageEvent;
 import me.mykindos.betterpvp.core.combat.events.PreCustomDamageEvent;
-import me.mykindos.betterpvp.core.combat.weapon.types.impl.ChannelWeaponImpl;
+import me.mykindos.betterpvp.core.combat.weapon.types.ChannelWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.InteractWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.LegendaryWeapon;
+import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.energy.EnergyHandler;
 import me.mykindos.betterpvp.core.framework.updater.UpdateEvent;
 import me.mykindos.betterpvp.core.listener.BPvPListener;
 import me.mykindos.betterpvp.core.utilities.UtilBlock;
 import me.mykindos.betterpvp.core.utilities.UtilMessage;
+import me.mykindos.betterpvp.core.utilities.UtilServer;
 import me.mykindos.betterpvp.core.utilities.UtilVelocity;
 import me.mykindos.betterpvp.core.utilities.math.VelocityData;
 import net.kyori.adventure.text.Component;
@@ -23,6 +25,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Effect;
 import org.bukkit.Material;
 import org.bukkit.Sound;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -31,15 +34,17 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.UUID;
 
 @Singleton
 @BPvPListener
-public class AlligatorsTooth extends ChannelWeaponImpl implements InteractWeapon, LegendaryWeapon, Listener {
+public class AlligatorsTooth extends ChannelWeapon implements InteractWeapon, LegendaryWeapon, Listener {
+
+    private static final String ABILITY_NAME = "Gator Stroke";
+
     private double bonusDamage;
     private double velocityStrength;
+    private double skimmingEnergyMultiplier;
 
     private final EnergyHandler energyHandler;
     private final ClientManager clientManager;
@@ -61,54 +66,63 @@ public class AlligatorsTooth extends ChannelWeaponImpl implements InteractWeapon
         lore.add(Component.text(""));
         lore.add(UtilMessage.deserialize("<white>Deals <yellow>%.1f</yellow> Damage with attack on land", baseDamage));
         lore.add(UtilMessage.deserialize("<white>Deals <yellow>%.1f</yellow> Damage with attack in water", (baseDamage + bonusDamage)));
-        lore.add(UtilMessage.deserialize("<yellow>Right-Click <white>to use <green>Gator Stroke"));
+        lore.add(UtilMessage.deserialize("<yellow>Right-Click <white>to use <green>%s", ABILITY_NAME));
         return lore;
     }
 
     @Override
     public void activate(Player player) {
-        channel(player);
+        active.add(player.getUniqueId());
     }
 
     @UpdateEvent
     public void doAlligatorsTooth() {
-        if (!isEnabled()) {
+        if (!enabled) {
             return;
         }
 
-        final Iterator<UUID> iterator = active.iterator();
-        while (iterator.hasNext()) {
-            final Player player = Bukkit.getPlayer(iterator.next());
-            if (player == null || !player.isOnline()) {
-                iterator.remove();
-                continue;
+        active.removeIf(uuid -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null) return true;
+
+            if (!isHoldingWeapon(player)) {
+                activeUsageNotifications.remove(player.getUniqueId());
+                return true;
             }
 
             final Gamer gamer = clientManager.search().online(player).getGamer();
-            if (!gamer.isHoldingRightClick() || player.getInventory().getItemInMainHand().getType() != getMaterial()) {
-                iterator.remove();
-                continue;
+            if (!gamer.isHoldingRightClick()) {
+                activeUsageNotifications.remove(player.getUniqueId());
+                return true;
             }
 
-            if (!isUsable()) {
-                iterator.remove();
-                continue;
+            var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, this, true));
+            if (checkUsageEvent.isCancelled()) {
+                UtilMessage.simpleMessage(player, "Restriction", "You cannot use this weapon here.");
+                activeUsageNotifications.remove(player.getUniqueId());
+                return true;
             }
 
             if (!canUse(player)) {
-                continue;
+                return false;
             }
 
-            if (!energyHandler.use(player, "Gator Stroke", energyPerTick, true)) {
-                iterator.remove();
-                continue;
+            var energyToUse = energyPerTick;
+            if(!UtilBlock.isWater(player.getEyeLocation().getBlock().getRelative(BlockFace.DOWN))) {
+                energyToUse *= skimmingEnergyMultiplier;
+            }
+
+            if (!energyHandler.use(player, ABILITY_NAME, energyToUse, true)) {
+                activeUsageNotifications.remove(player.getUniqueId());
+                return true;
             }
 
             VelocityData velocityData = new VelocityData(player.getLocation().getDirection(), velocityStrength, false, 0, 0.11, 1.0, true);
             UtilVelocity.velocity(player, null, velocityData);
             player.getWorld().playEffect(player.getLocation(), Effect.STEP_SOUND, Material.LAPIS_BLOCK);
             player.getWorld().playSound(player.getLocation(), Sound.ENTITY_FISH_SWIM, 0.8F, 1.5F);
-        }
+            return false;
+        });
     }
 
     @EventHandler(priority = EventPriority.LOW)
@@ -145,9 +159,13 @@ public class AlligatorsTooth extends ChannelWeaponImpl implements InteractWeapon
     @Override
     public boolean canUse(Player player) {
         if (!UtilBlock.isInWater(player)) {
-            UtilMessage.simpleMessage(player, "Gator Stroke", "You can only use this ability in water!");
+            if (!activeUsageNotifications.contains(player.getUniqueId())) {
+                UtilMessage.simpleMessage(player, getSimpleName(), String.format("You cannot use <green>%s <gray>out of water", ABILITY_NAME));
+                activeUsageNotifications.add(player.getUniqueId());
+            }
             return false;
         }
+        activeUsageNotifications.remove(player.getUniqueId());
         return true;
     }
 
@@ -160,6 +178,7 @@ public class AlligatorsTooth extends ChannelWeaponImpl implements InteractWeapon
     @Override
     public void loadWeaponConfig() {
         bonusDamage = getConfig("bonusDamage", 4.0, Double.class);
-        velocityStrength = getConfig("velocityStrength", 1.0, Double.class);
+        velocityStrength = getConfig("velocityStrength", 0.7, Double.class);
+        skimmingEnergyMultiplier = getConfig("skimmingEnergyMultiplier", 3.0, Double.class);
     }
 }

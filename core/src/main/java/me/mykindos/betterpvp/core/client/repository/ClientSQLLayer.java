@@ -58,6 +58,8 @@ public class ClientSQLLayer {
         final Optional<Client> client = getClient(uuid);
         client.ifPresent(loaded -> {
             if (!loaded.getName().equals(name)) {
+                log.info("Updating name for {} from {} to {}", uuid, loaded.getName(), name)
+                        .addClientContext(loaded, false).submit();
                 loaded.setName(name);
                 save(loaded);
             }
@@ -134,9 +136,10 @@ public class ClientSQLLayer {
 
     public void save(Client object) {
         // Client
-        String query = "INSERT INTO clients (UUID, Name) VALUES(?, ?) ON DUPLICATE KEY UPDATE `Rank` = ?;";
+        String query = "INSERT INTO clients (UUID, Name) VALUES(?, ?) ON DUPLICATE KEY UPDATE Name = ?, `Rank` = ?;";
         sharedDatabase.executeUpdateAsync(new Statement(query,
                 new StringStatementValue(object.getUuid()),
+                new StringStatementValue(object.getName()),
                 new StringStatementValue(object.getName()),
                 new StringStatementValue(object.getRank().name())
         ));

@@ -42,12 +42,13 @@ skills:
     smokebomb:
       enabled: true
       cooldown: 40.0
-      maxlevel: 5
-      baseDuration: 3.0
+      maxlevel: 3
+      baseDuration: 4.0
       blindDuration: 1.75
       blindRadius: 4.0
-      cooldownDecreasePerLevel: 2.5
+      cooldownDecreasePerLevel: 5.0
       durationIncreasePerLevel: 1.0
+      allowPickupItems: false
     silencingarrow:
       enabled: true
       maxlevel: 5
@@ -78,12 +79,13 @@ skills:
       baseDamageIncrement: 1.0
     concussion:
       enabled: true
-      cooldown: 16.0
+      cooldown: 14.0
       maxlevel: 3
       durationPerLevel: 1.5
       cooldownDecreasePerLevel: 1.0
-      baseDuration: 1.5
+      baseDuration: 2.0
       durationIncreasePerLevel: 1.5
+      concussionStrength: 1
     slash:
       enabled: true
       maxlevel: 3
@@ -93,9 +95,9 @@ skills:
       damageIncreasePerLevel: 1.5
       distance: 5.0
       cooldownReductionPerHit: 3.0
-      distanceIncreasePerLevel: 1.0
+      distanceIncreasePerLevel: 0.0
       cooldownReduction: 4.0
-      cooldownReductionPerLevel: 1.0
+      cooldownReductionPerLevel: 0.0
     excessiveforce:
       enabled: true
       cooldown: 16.0
@@ -129,7 +131,7 @@ skills:
       baseDuration: 6.0
       cooldownDecreasePerLevel: 2.0
       durationIncreasePerLevel: 1.0
-      vulnerabilityStrength: 1
+      vulnerabilityStrength: 4
     toxicarrow:
       enabled: true
       maxlevel: 5
@@ -140,13 +142,13 @@ skills:
       poisonStrength: 2
     recall:
       enabled: true
-      maxlevel: 5
-      cooldown: 30.0
+      maxlevel: 3
+      cooldown: 28.0
       percentHealthRecovered: 0.25
-      duration: 2.5
+      duration: 2.0
       canUseWhileSlowed: false
       cooldownDecreasePerLevel: 2.0
-      durationIncreasePerLevel: 1.0
+      durationIncreasePerLevel: 1.5
     evade:
       enabled: true
       maxlevel: 3
@@ -384,6 +386,7 @@ skills:
       baseShockDuration: 2.0
       maxTarget: 3
       shockDuration: 2.0
+      velocityStrength: 3.0
     swarm:
       enabled: true
       maxlevel: 5
@@ -764,7 +767,7 @@ skills:
       maxlevel: 5
       baseDamage: 1.0
       damageIncreasePerLevel: 0.0
-      baseDuration: 2.0
+      baseDuration: 2.4
       durationDecreasePerLevel: 0.4
       baseMaxDamage: 2.0
       maxDamageIncreasePerLevel: 1.0

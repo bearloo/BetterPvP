@@ -21,7 +21,6 @@ import me.mykindos.betterpvp.core.utilities.UtilEffect;
 import me.mykindos.betterpvp.core.utilities.UtilItem;
 import me.mykindos.betterpvp.core.utilities.UtilMessage;
 import me.mykindos.betterpvp.core.utilities.UtilServer;
-import me.mykindos.betterpvp.core.utilities.UtilTime;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.TextComponent;
@@ -31,6 +30,7 @@ import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -233,18 +233,18 @@ public class RoleListener implements Listener {
     }
 
     @EventHandler
-    public void onInventoryClick(InventoryClickEvent e) {
-        if (e.getSlotType() == InventoryType.SlotType.ARMOR) {
-            if (e.getWhoClicked() instanceof Player player) {
-                Gamer gamer = clientManager.search().online(player).getGamer();
-                if (!UtilTime.elapsed(gamer.getLastDamaged(), 15000)) {
-                    final Optional<Role> role = roleManager.getObject(player.getUniqueId());
-                    if (role.isPresent()) {
-                        UtilMessage.message(player, "Class", "You cannot remove your class while in combat.");
-                        e.setCancelled(true);
-                    }
-                }
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (event.getSlotType() != InventoryType.SlotType.ARMOR) return;
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+
+        Gamer gamer = clientManager.search().online(player).getGamer();
+        if (gamer.isInCombat()) {
+            final Optional<Role> role = roleManager.getObject(player.getUniqueId());
+            if (role.isPresent()) {
+                UtilMessage.message(player, "Class", "You cannot remove your class while in combat.");
+                event.setCancelled(true);
             }
+
         }
     }
 
@@ -255,9 +255,9 @@ public class RoleListener implements Listener {
         ItemStack mainhand = event.getPlayer().getInventory().getItemInMainHand();
         Player player = event.getPlayer();
         Gamer gamer = clientManager.search().online(player).getGamer();
-        if (UtilItem.isArmour(mainhand.getType()) && !UtilTime.elapsed(gamer.getLastDamaged(), 15000)) {
+        if (UtilItem.isArmour(mainhand.getType()) && gamer.isInCombat()) {
             UtilMessage.message(player, "Class", "You cannot remove your class while in combat.");
-            event.setCancelled(true);
+            event.setUseItemInHand(Event.Result.DENY);
         }
     }
 }
