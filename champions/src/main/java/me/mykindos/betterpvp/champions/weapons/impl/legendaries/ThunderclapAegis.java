@@ -12,10 +12,9 @@ import me.mykindos.betterpvp.core.client.repository.ClientManager;
 import me.mykindos.betterpvp.core.combat.events.CustomDamageEvent;
 import me.mykindos.betterpvp.core.combat.events.EntityCanHurtEntityEvent;
 import me.mykindos.betterpvp.core.combat.events.PreCustomDamageEvent;
-import me.mykindos.betterpvp.core.combat.weapon.types.ChannelWeapon;
+import me.mykindos.betterpvp.core.combat.weapon.types.impl.ChannelWeaponImpl;
 import me.mykindos.betterpvp.core.combat.weapon.types.InteractWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.LegendaryWeapon;
-import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.effects.EffectManager;
 import me.mykindos.betterpvp.core.effects.EffectTypes;
 import me.mykindos.betterpvp.core.energy.EnergyHandler;
@@ -62,17 +61,14 @@ import java.util.WeakHashMap;
 
 @Singleton
 @BPvPListener
-public class ThunderclapAegis extends ChannelWeapon implements InteractWeapon, LegendaryWeapon, Listener {
+public class ThunderclapAegis extends ChannelWeaponImpl implements InteractWeapon, LegendaryWeapon, Listener {
 
     private static final String PULSE_NAME = "Pulsating Surge";
     private static final String COLLISION_NAME = "Voltic Bash";
     private static final String ABILITY_NAME = "Charge";
 
     private final WeakHashMap<Player, AegisData> cache = new WeakHashMap<>();
-    private final Champions champions;
-    private final ClientManager clientManager;
-    private final EffectManager effectManager;
-    private final EnergyHandler energyHandler;
+
     private int maxChargeTicks;
     private double baseVelocity;
     private double chargeDamage;
@@ -83,6 +79,11 @@ public class ThunderclapAegis extends ChannelWeapon implements InteractWeapon, L
     private double pulseRadius;
     private double collidePulseRadius;
     private double energyOnCollide;
+
+    private final Champions champions;
+    private final ClientManager clientManager;
+    private final EffectManager effectManager;
+    private final EnergyHandler energyHandler;
 
     private final PermanentComponent actionBar = new PermanentComponent(gmr -> {
         if (!gmr.isOnline() || !cache.containsKey(gmr.getPlayer())) {
@@ -98,9 +99,9 @@ public class ThunderclapAegis extends ChannelWeapon implements InteractWeapon, L
     });
 
     @Inject
-    public ThunderclapAegis(Champions champions, Champions champions1, final ClientManager clientManager, final EffectManager effectManager, EnergyHandler energyHandler) {
+    public ThunderclapAegis(Champions champions, final ClientManager clientManager, final EffectManager effectManager, EnergyHandler energyHandler) {
         super(champions, "thunderclap_aegis");
-        this.champions = champions1;
+        this.champions = champions;
         this.clientManager = clientManager;
         this.effectManager = effectManager;
         this.energyHandler = energyHandler;
@@ -116,6 +117,7 @@ public class ThunderclapAegis extends ChannelWeapon implements InteractWeapon, L
         lore.add(Component.text("their fury, rends adversaries with", NamedTextColor.WHITE));
         lore.add(Component.text("divine energy.", NamedTextColor.WHITE));
         lore.add(Component.text(""));
+        lore.add(UtilMessage.deserialize("<white>Deals <yellow>%.1f Damage <white>with attack", baseDamage));
         lore.add(UtilMessage.deserialize("<yellow>Right-Click <white>to use <green>%s", ABILITY_NAME));
         return lore;
     }
@@ -232,7 +234,7 @@ public class ThunderclapAegis extends ChannelWeapon implements InteractWeapon, L
 
     @UpdateEvent (priority = 100)
     public void doThunderclapAegis() {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -261,12 +263,10 @@ public class ThunderclapAegis extends ChannelWeapon implements InteractWeapon, L
                 continue;
             }
 
-            var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, this, true));
-            if (checkUsageEvent.isCancelled()) {
+            if (!isUsable(player)) {
                 iterator.remove();
                 deactivate(data);
                 activeUsageNotifications.remove(player.getUniqueId());
-                UtilMessage.simpleMessage(player, "Restriction", "You cannot use this weapon here.");
                 continue;
             }
 
@@ -365,7 +365,7 @@ public class ThunderclapAegis extends ChannelWeapon implements InteractWeapon, L
 
     @EventHandler(priority = EventPriority.LOW)
     public void onDamage(PreCustomDamageEvent event) {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -388,11 +388,6 @@ public class ThunderclapAegis extends ChannelWeapon implements InteractWeapon, L
         }
         activeUsageNotifications.remove(player.getUniqueId());
         return true;
-    }
-
-    @Override
-    public double getEnergy() {
-        return initialEnergyCost;
     }
 
     @Override

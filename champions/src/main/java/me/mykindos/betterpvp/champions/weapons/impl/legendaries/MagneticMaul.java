@@ -9,10 +9,9 @@ import me.mykindos.betterpvp.core.client.repository.ClientManager;
 import me.mykindos.betterpvp.core.combat.events.CustomDamageEvent;
 import me.mykindos.betterpvp.core.combat.events.CustomKnockbackEvent;
 import me.mykindos.betterpvp.core.combat.events.PreCustomDamageEvent;
-import me.mykindos.betterpvp.core.combat.weapon.types.ChannelWeapon;
+import me.mykindos.betterpvp.core.combat.weapon.types.impl.ChannelWeaponImpl;
 import me.mykindos.betterpvp.core.combat.weapon.types.InteractWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.LegendaryWeapon;
-import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.energy.EnergyHandler;
 import me.mykindos.betterpvp.core.framework.customtypes.KeyValue;
 import me.mykindos.betterpvp.core.framework.updater.UpdateEvent;
@@ -47,11 +46,13 @@ import java.util.List;
 
 @Singleton
 @BPvPListener
-public class MagneticMaul extends ChannelWeapon implements InteractWeapon, LegendaryWeapon, Listener {
+public class MagneticMaul extends ChannelWeaponImpl implements InteractWeapon, LegendaryWeapon, Listener {
 
     private static final String ABILITY_NAME = "Magnetism";
+
     private double pullRange;
     private double pullFov;
+
     private final EnergyHandler energyHandler;
     private final ClientManager clientManager;
 
@@ -72,30 +73,25 @@ public class MagneticMaul extends ChannelWeapon implements InteractWeapon, Legen
         lore.add(Component.text("towards you with magnetic force.", NamedTextColor.WHITE));
         lore.add(Component.text(""));
         lore.add(UtilMessage.deserialize("<white>Deals <yellow>%.1f Damage <white>with attack", baseDamage));
-        lore.add(UtilMessage.deserialize("<yellow>Right-Click <white>to use <green>" + ABILITY_NAME));
+        lore.add(UtilMessage.deserialize("<yellow>Right-Click <white>to use <green>%s", ABILITY_NAME));
         return lore;
     }
 
     @Override
     public void activate(Player player) {
-        active.add(player.getUniqueId());
-    }
-
-    @Override
-    public boolean canUse(Player player) {
-        return true;
+        channel(player);
     }
 
     @UpdateEvent (priority = 99)
-    public void doMaul() {
-        if (!enabled) {
+    public void doMagneticMaul() {
+        if (!isEnabled()) {
            return;
         }
-        active.removeIf(uuid -> {
+        channelling.removeIf(uuid -> {
             Player player = Bukkit.getPlayer(uuid);
             if (player == null) return true;
 
-            if (player.getInventory().getItemInMainHand().getType() != getMaterial()) {
+            if (!isHoldingWeapon(player)) {
                 return true;
             }
 
@@ -108,9 +104,7 @@ public class MagneticMaul extends ChannelWeapon implements InteractWeapon, Legen
                 return true;
             }
 
-            var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, this, true));
-            if (checkUsageEvent.isCancelled()) {
-                UtilMessage.simpleMessage(player, "Restriction", "You cannot use this weapon here.");
+            if (!isUsable(player)) {
                 return true;
             }
 
@@ -224,7 +218,6 @@ public class MagneticMaul extends ChannelWeapon implements InteractWeapon, Legen
         }
     }
 
-
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onKB(CustomKnockbackEvent event) {
         if (!enabled) {
@@ -243,11 +236,6 @@ public class MagneticMaul extends ChannelWeapon implements InteractWeapon, Legen
             event.setCanBypassMinimum(true);
             event.setMultiplier(-1);
         }
-    }
-
-    @Override
-    public double getEnergy() {
-        return initialEnergyCost;
     }
 
     @Override

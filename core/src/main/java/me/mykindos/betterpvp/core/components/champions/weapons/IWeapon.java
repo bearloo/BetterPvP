@@ -13,6 +13,7 @@ public interface IWeapon {
     Component getName();
     int getModel();
     boolean isHoldingWeapon(Player player);
+    boolean hasWeapon(Player player);
 
     boolean isEnabled();
 

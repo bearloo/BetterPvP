@@ -18,6 +18,7 @@ import me.mykindos.betterpvp.core.items.uuiditem.UUIDItem;
 import me.mykindos.betterpvp.core.listener.BPvPListener;
 import me.mykindos.betterpvp.core.logging.LogContext;
 import me.mykindos.betterpvp.core.logging.PendingLog;
+import me.mykindos.betterpvp.core.utilities.UtilInventory;
 import me.mykindos.betterpvp.core.utilities.UtilMessage;
 import me.mykindos.betterpvp.core.utilities.UtilPlayer;
 import me.mykindos.betterpvp.core.utilities.UtilServer;
@@ -81,21 +82,6 @@ public class UUIDListener implements Listener {
     private final Set<UUID> uuidSet = new HashSet<>();
 
     private static final double UUID_CHECK_TIME_SECONDS = 120;
-
-    /**
-     * A list of inventories that do not store items. I.e. a crafting table or anvil
-     */
-    private static final List<InventoryType> INVENTORY_NO_STORE_TYPES = new ArrayList<>(List.of(
-            InventoryType.ANVIL,
-            InventoryType.WORKBENCH,
-            InventoryType.CRAFTING
-    ));
-
-    private static final List<InventoryType> INVENTORY_FURNACE_TYPES = new ArrayList<>(List.of(
-            InventoryType.FURNACE,
-            InventoryType.BLAST_FURNACE,
-            InventoryType.SMOKER
-    ));
 
     private final Map<Player, Inventory> lastInventory = new HashMap<>();
     private final Map<Player, UUIDItem> lastHeldUUIDItem = new HashMap<>();
@@ -300,7 +286,7 @@ public class UUIDListener implements Listener {
             if (event.getAction().equals(InventoryAction.MOVE_TO_OTHER_INVENTORY)) {
                 Inventory inventory = event.getClickedInventory();
                 assert inventory != null;
-                if (INVENTORY_FURNACE_TYPES.contains(event.getInventory().getType()) && !event.getInventory().equals(event.getClickedInventory())) {
+                if (UtilInventory.INVENTORY_FURNACE_TYPES.contains(event.getInventory().getType()) && !event.getInventory().equals(event.getClickedInventory())) {
                     //this is a furnace, UUIDItems cannot be shift clicked in, but can be shift clicked out
                     return;
                 }
@@ -533,7 +519,7 @@ public class UUIDListener implements Listener {
     }
 
     private void placeItemLogic(Player player, Inventory inventory, ItemStack itemStack) {
-        if (!INVENTORY_NO_STORE_TYPES.contains(inventory.getType())) {
+        if (!UtilInventory.INVENTORY_NO_STORE_TYPES.contains(inventory.getType())) {
             //This is an inventory that can store items
             if (lastInventory.containsKey(player)) {
                 if (lastInventory.get(player) != inventory) {
@@ -551,7 +537,7 @@ public class UUIDListener implements Listener {
     }
 
     private void processRetrieveItem(Player player, Inventory inventory, ItemStack itemStack) {
-        if (!INVENTORY_NO_STORE_TYPES.contains(inventory.getType())) {
+        if (!UtilInventory.INVENTORY_NO_STORE_TYPES.contains(inventory.getType())) {
             //this inventory can store items, therefore we can retrieve from it
             itemHandler.getUUIDItem(itemStack).ifPresent(item -> {
                 Location location = inventory.getLocation();
@@ -567,7 +553,7 @@ public class UUIDListener implements Listener {
     }
 
     private void processStoreItem(Player player, Inventory inventory, ItemStack itemStack) {
-        if (!INVENTORY_NO_STORE_TYPES.contains(inventory.getType())) {
+        if (!UtilInventory.INVENTORY_NO_STORE_TYPES.contains(inventory.getType())) {
             //this inventory can store items
             itemHandler.getUUIDItem(itemStack).ifPresent(item -> {
                 Location location = inventory.getLocation();

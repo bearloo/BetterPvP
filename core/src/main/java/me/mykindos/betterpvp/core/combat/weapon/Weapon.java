@@ -122,6 +122,21 @@ public abstract class Weapon extends BPvPItem implements IWeapon {
         return matches(itemStack);
     }
 
+    @Override
+    public boolean hasWeapon(Player player) {
+        for (final ItemStack item : player.getInventory().getContents()) {
+            if (item == null) {
+                continue;
+            }
+
+            if (matches(item)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public int getModel() {
         return getCustomModelData();
     }

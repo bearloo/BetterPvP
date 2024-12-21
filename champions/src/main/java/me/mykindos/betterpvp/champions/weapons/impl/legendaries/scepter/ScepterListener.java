@@ -4,7 +4,6 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import me.mykindos.betterpvp.core.combat.events.CustomDamageEvent;
 import me.mykindos.betterpvp.core.combat.events.PreCustomDamageEvent;
-import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.framework.updater.UpdateEvent;
 import me.mykindos.betterpvp.core.listener.BPvPListener;
 import me.mykindos.betterpvp.core.utilities.UtilMessage;
@@ -55,9 +54,7 @@ public class ScepterListener implements Listener {
 
 
         if (scepter.isHoldingWeapon(event.getPlayer())) {
-            var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(event.getPlayer(), scepter, true));
-            if (checkUsageEvent.isCancelled()) {
-                UtilMessage.simpleMessage(event.getPlayer(), "Restriction", "You cannot use this weapon here.");
+            if (!scepter.isUsable(event.getPlayer())) {
                 return;
             }
 
@@ -132,5 +129,4 @@ public class ScepterListener implements Listener {
             }
         }
     }
-
 }

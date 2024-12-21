@@ -12,20 +12,27 @@ import java.util.UUID;
 
 public abstract class ChannelWeaponImpl extends Weapon implements ChannelWeapon {
 
-    protected final Set<UUID> channellers = new HashSet<>();
+    protected final Set<UUID> channelling = new HashSet<>();
+    protected final Set<UUID> activeUsageNotifications = new HashSet<>();
 
     public ChannelWeaponImpl(BPvPPlugin plugin, String key) {
         super(plugin, key);
     }
 
     @Override
-    public void channel(Player player) {
-        channellers.add(player.getUniqueId());
+    public boolean channel(Player player) {
+        return channelling.add(player.getUniqueId());
     }
 
     @Override
-    public void cancel(Player player) {
-        channellers.remove(player.getUniqueId());
+    public boolean cancel(Player player) {
+        activeUsageNotifications.remove(player.getUniqueId());
+        return channelling.remove(player.getUniqueId());
+    }
+
+    @Override
+    public boolean isChannelling(Player player) {
+        return channelling.contains(player.getUniqueId());
     }
 
     @Override

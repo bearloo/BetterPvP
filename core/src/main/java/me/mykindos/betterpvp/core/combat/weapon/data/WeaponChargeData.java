@@ -1,6 +1,7 @@
 package me.mykindos.betterpvp.core.combat.weapon.data;
 
 import lombok.Data;
+import lombok.AllArgsConstructor;
 
 @Data
 @AllArgsConstructor

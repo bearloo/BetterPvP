@@ -38,11 +38,14 @@ import java.util.List;
 @BPvPListener
 public class HyperAxe extends Weapon implements InteractWeapon, LegendaryWeapon, Listener {
 
+    private static final String ABILITY_NAME = "Hyper Rush";
+
     private int damageDelay;
     private boolean dealsKnockback;
     private boolean usesEnergy;
     private int energyPerHit;
     private double hyperRushCooldown;
+
     private final EnergyHandler energyHandler;
     private final CooldownManager cooldownManager;
     private final EffectManager effectManager;
@@ -57,7 +60,7 @@ public class HyperAxe extends Weapon implements InteractWeapon, LegendaryWeapon,
 
     @EventHandler(priority = EventPriority.LOW)
     public void onDamage(PreCustomDamageEvent event) {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -67,7 +70,7 @@ public class HyperAxe extends Weapon implements InteractWeapon, LegendaryWeapon,
         if (!isHoldingWeapon(player)) return;
 
         if (usesEnergy) {
-            if (!energyHandler.use(player, "Hyper Axe", energyPerHit, true)) {
+            if (!energyHandler.use(player, getSimpleName(), energyPerHit, true)) {
                 return;
             }
         }
@@ -75,7 +78,6 @@ public class HyperAxe extends Weapon implements InteractWeapon, LegendaryWeapon,
         cde.setDamage(baseDamage);
         cde.setKnockback(dealsKnockback);
         cde.setDamageDelay(damageDelay);
-
     }
 
     @Override
@@ -95,10 +97,9 @@ public class HyperAxe extends Weapon implements InteractWeapon, LegendaryWeapon,
             lore.add(Component.text(""));
             int speedLevel = meta.getPersistentDataContainer().getOrDefault(ChampionsNamespacedKeys.HYPER_AXE_SPEED, PersistentDataType.INTEGER, 1);
             int duration = meta.getPersistentDataContainer().getOrDefault(ChampionsNamespacedKeys.HYPER_AXE_DURATION, PersistentDataType.INTEGER, 80);
-            lore.add(UtilMessage.deserialize("<yellow>Right-Click <white>to use <green>Hyper Rush"));
+            lore.add(UtilMessage.deserialize("<yellow>Right-Click <white>to use <green>%s", ABILITY_NAME));
             lore.add(UtilMessage.deserialize("<white>Gain <light_purple>Speed %s <white>for <green>%.2f seconds", UtilFormat.getRomanNumeral(speedLevel), duration / 20.0));
         }
-
 
         return lore;
     }
@@ -115,11 +116,14 @@ public class HyperAxe extends Weapon implements InteractWeapon, LegendaryWeapon,
             int duration = UtilMath.randomInt(80, 320);
             meta.getPersistentDataContainer().set(ChampionsNamespacedKeys.HYPER_AXE_DURATION, PersistentDataType.INTEGER, duration);
         }
-
     }
 
     @Override
     public void activate(Player player) {
+        if (!isEnabled()) {
+            return;
+        }
+
         ItemStack item = player.getInventory().getItemInMainHand();
         if (!item.hasItemMeta()) return;
 
@@ -128,8 +132,8 @@ public class HyperAxe extends Weapon implements InteractWeapon, LegendaryWeapon,
 
             int level = meta.getPersistentDataContainer().getOrDefault(ChampionsNamespacedKeys.HYPER_AXE_SPEED, PersistentDataType.INTEGER, 1);
             int duration = meta.getPersistentDataContainer().getOrDefault(ChampionsNamespacedKeys.HYPER_AXE_DURATION, PersistentDataType.INTEGER, 80);
-            if (cooldownManager.use(player, "Hyper Rush", hyperRushCooldown, true)) {
-                UtilMessage.simpleMessage(player, "Hyper Axe", "You used <green>Hyper Rush<gray>.");
+            if (cooldownManager.use(player, ABILITY_NAME, hyperRushCooldown, true)) {
+                UtilMessage.simpleMessage(player, getSimpleName(), "You used <green>%s<gray>.", ABILITY_NAME);
                 effectManager.addEffect(player, EffectTypes.SPEED, level, (long) ((duration / 20d) * 1000));
                 UtilSound.playSound(player.getWorld(), player.getLocation(), Sound.ENTITY_ILLUSIONER_PREPARE_MIRROR, 1, 1);
             }
@@ -139,7 +143,7 @@ public class HyperAxe extends Weapon implements InteractWeapon, LegendaryWeapon,
     @Override
     public boolean canUse(Player player) {
         if (UtilBlock.isInWater(player)) {
-            UtilMessage.simpleMessage(player, "Hyper Axe", "You cannot use <green>Hyper Rush <gray>in water.");
+            UtilMessage.simpleMessage(player, getSimpleName(), "You cannot use <green>%s <gray>in water.", ABILITY_NAME);
             return false;
         }
         return true;

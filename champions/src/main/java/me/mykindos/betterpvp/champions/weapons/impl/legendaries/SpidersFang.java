@@ -16,12 +16,14 @@ import me.mykindos.betterpvp.core.energy.EnergyHandler;
 import me.mykindos.betterpvp.core.framework.updater.UpdateEvent;
 import me.mykindos.betterpvp.core.listener.BPvPListener;
 import me.mykindos.betterpvp.core.utilities.UtilBlock;
+import me.mykindos.betterpvp.core.utilities.UtilPlayer;
 import me.mykindos.betterpvp.core.utilities.UtilMessage;
 import me.mykindos.betterpvp.core.utilities.UtilServer;
 import me.mykindos.betterpvp.core.utilities.UtilVelocity;
 import me.mykindos.betterpvp.core.utilities.math.VelocityData;
 import me.mykindos.betterpvp.core.combat.events.VelocityType;
 import me.mykindos.betterpvp.core.effects.EffectTypes;
+import me.mykindos.betterpvp.core.particles.effects.Cobweb;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -30,6 +32,7 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Effect;
 import org.bukkit.Sound;
+import org.bukkit.SoundCategory;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -54,9 +57,11 @@ public class SpidersFang extends ChargeableChannelWeaponImpl implements Legendar
     private static final String SHIFT_ABILITY_NAME = "Wall Cling";
     private static final String RIGHT_CLICK_ABILITY_NAME = "Web Pounce";
 
-    private double webRadius;
+    private int webRadius;
+    private int webSlowness;
+    private double webDuration;
     private double webPounceStrength;
-    private double fallDamageLimit;
+    private double fallDamageReduction;
 
     private final Champions champions;
     private final ChampionsManager championsManager;
@@ -86,28 +91,22 @@ public class SpidersFang extends ChargeableChannelWeaponImpl implements Legendar
     }
 
     @Override
-    protected String getChargeableName() {
+    public String getChargeableName() {
         return RIGHT_CLICK_ABILITY_NAME;
     }
 
     @Override
-    public int getInitialCharges() {
-        return maxCharges;
+    public double getEnergy() {
+        return 0; // Right click does not require energy
     }
 
     @Override
-    protected void useCharge(Player player) {
-        VelocityData velocityData = new VelocityData(player.getLocation().getDirection(), webPounceStrength, false, 0.0D, 0.2D, 1.0D, true);
-        UtilVelocity.velocity(player, null, velocityData, VelocityType.CUSTOM);
-        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_SPIDER_DEATH, 0.5F, 2.0F); // TODO Change
+    public void useCharge(Player player) {
+        if (isChannelling(player)) {
+            cancel(player); // Prevent wall cling velocity from stopping the pounce
+        }
 
-        UtilServer.runTaskLater(champions, () -> {
-            championsManager.getEffects().addEffect(player, player, EffectTypes.NO_FALL, getChargeableName(), (int)fallDamageReduction,
-                    100L, true, true, UtilBlock::isGrounded);
-        }, 3L);
-
-        // TODO Task for web particles upon landing
-        // TODO Web nearby players in radius (slowness, mp jagged effect?)
+        doWebPounce(player);
     }
 
     @UpdateEvent
@@ -116,20 +115,25 @@ public class SpidersFang extends ChargeableChannelWeaponImpl implements Legendar
             return;
         }
 
-        final Iterator<UUID> iterator = active.iterator();
+        final Iterator<UUID> iterator = channelling.iterator();
         while (iterator.hasNext()) {
             final Player player = Bukkit.getPlayer(iterator.next());
-            if (player == null || !player.isOnline()) {
+            if (player == null) {
                 iterator.remove();
                 continue;
             }
 
-            if (!isUsable()) {
+            if (!isUsable(player)) {
                 iterator.remove();
                 continue;
             }
 
             if (!player.isSneaking()) {
+                iterator.remove();
+                continue;
+            }
+
+            if (UtilBlock.isGrounded(player)) {
                 iterator.remove();
                 continue;
             }
@@ -149,7 +153,7 @@ public class SpidersFang extends ChargeableChannelWeaponImpl implements Legendar
             }
 
             if (!energyHandler.use(player, SHIFT_ABILITY_NAME, energyPerTick, true)) {
-                iterator.remove;
+                iterator.remove();
                 continue;
             }
 
@@ -157,15 +161,42 @@ public class SpidersFang extends ChargeableChannelWeaponImpl implements Legendar
         }
     }
 
-    public void doWallCling(Player player) {
-        Vector hoverVector = player.getLocation().getDirection();
-        hoverVector.setY(0); // TODO Required?
-
-        VelocityData hoverVelocity = new VelocityData(hoverVector, 0, false, 0.0D, 0.0D, 0.0D, true);
+    private void doWallCling(Player player) {
+        // Apply a small amount of upwards velocity to stop players from sliding down the wall
+        VelocityData hoverVelocity = new VelocityData(player.getLocation().getDirection(), 0, true, 0.01D, 0.0D, 0.01D, false);
         UtilVelocity.velocity(player, null, hoverVelocity, VelocityType.CUSTOM);
     }
 
-    public boolean canCling(Player player) {
+    private void doWebPounce(Player player) {
+        VelocityData velocityData = new VelocityData(player.getLocation().getDirection(), webPounceStrength, false, 0.0D, 0.8D, 1.0D, true);
+        UtilVelocity.velocity(player, null, velocityData, VelocityType.CUSTOM);
+
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_SPIDER_AMBIENT, SoundCategory.PLAYERS, 2.0F, 0.6F);
+        new Cobweb(player.getLocation())
+                .setRadius(webRadius)
+                .setViewDistance(60)
+                .draw();
+
+        UtilServer.runTaskLater(champions, () -> {
+            championsManager.getEffects().addEffect(player, player, EffectTypes.NO_FALL, getChargeableName(), (int)fallDamageReduction,
+                    100L, true, true, UtilBlock::isGrounded);
+        }, 3L);
+
+        final List<Player> enemies = UtilPlayer.getNearbyEnemies(player, player.getLocation(), webRadius);
+        for (Player enemy : enemies) {
+            web(player, enemy);
+        }
+    }
+
+    private void web(Player caster, Player target) {
+        long duration = (long) (webDuration * 1000L);
+
+        UtilMessage.simpleMessage(caster, getSimpleName(), "You hit <alt>" + target.getName() + "</alt> with <alt>" + RIGHT_CLICK_ABILITY_NAME);
+        UtilMessage.simpleMessage(target, getSimpleName(), "<alt>" + caster.getName() + "</alt> hit you with <alt>" + RIGHT_CLICK_ABILITY_NAME);
+        championsManager.getEffects().addEffect(target, EffectTypes.SLOWNESS, webSlowness, duration);
+    }
+
+    private boolean canCling(Player player) {
         ArrayList<Block> surrounding = UtilBlock.getBlocksSurroundingPlayer(player, false);
         return surrounding.stream().anyMatch(block -> UtilBlock.solid(block));
     }
@@ -179,9 +210,9 @@ public class SpidersFang extends ChargeableChannelWeaponImpl implements Legendar
         final Player player = event.getPlayer();
 
         if (event.isSneaking() && isHoldingWeapon(player)) {
-            active.add(player.getUniqueId());
+            channel(player);
         } else {
-            active.remove(player.getUniqueId());
+            cancel(player);
         }
     }
 
@@ -211,7 +242,9 @@ public class SpidersFang extends ChargeableChannelWeaponImpl implements Legendar
 
     @Override
     public void loadWeaponConfig() {
-        webRadius = getConfig("webRadius", 3.0, Double.class);
+        webRadius = getConfig("webRadius", 3, Integer.class);
+        webSlowness = getConfig("webbedSlowness", 2, Integer.class);
+        webDuration = getConfig("webbedDuration", 5.0, Double.class);
         webPounceStrength = getConfig("webPounceStrength", 2.0, Double.class);
         fallDamageReduction = getConfig("fallDamageReduction", 15.0, Double.class);
     }

@@ -8,7 +8,6 @@ import me.mykindos.betterpvp.champions.Champions;
 import me.mykindos.betterpvp.core.client.gamer.Gamer;
 import me.mykindos.betterpvp.core.combat.events.CustomDamageEvent;
 import me.mykindos.betterpvp.core.combat.events.PreCustomDamageEvent;
-import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.effects.EffectManager;
 import me.mykindos.betterpvp.core.effects.EffectTypes;
 import me.mykindos.betterpvp.core.framework.updater.UpdateEvent;
@@ -266,9 +265,7 @@ public class ScytheListener implements Listener {
             }
 
             // Call usage event
-            var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, scythe, true));
-            if (checkUsageEvent.isCancelled()) {
-                UtilMessage.simpleMessage(player, "Restriction", "You cannot use this weapon here.");
+            if (!scythe.isUsable(player)) {
                 iterator.remove();
                 scythe.pause(player, data);
                 continue;

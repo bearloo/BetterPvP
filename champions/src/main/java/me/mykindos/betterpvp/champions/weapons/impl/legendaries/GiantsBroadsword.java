@@ -8,10 +8,9 @@ import me.mykindos.betterpvp.core.client.gamer.Gamer;
 import me.mykindos.betterpvp.core.client.repository.ClientManager;
 import me.mykindos.betterpvp.core.combat.events.CustomDamageEvent;
 import me.mykindos.betterpvp.core.combat.events.PreCustomDamageEvent;
-import me.mykindos.betterpvp.core.combat.weapon.types.ChannelWeapon;
+import me.mykindos.betterpvp.core.combat.weapon.types.impl.ChannelWeaponImpl;
 import me.mykindos.betterpvp.core.combat.weapon.types.InteractWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.LegendaryWeapon;
-import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.effects.EffectManager;
 import me.mykindos.betterpvp.core.effects.EffectTypes;
 import me.mykindos.betterpvp.core.energy.EnergyHandler;
@@ -43,12 +42,15 @@ import java.util.UUID;
 
 @Singleton
 @BPvPListener
-public class GiantsBroadsword extends ChannelWeapon implements InteractWeapon, LegendaryWeapon, Listener {
+public class GiantsBroadsword extends ChannelWeaponImpl implements InteractWeapon, LegendaryWeapon, Listener {
 
     private static final String ABILITY_NAME = "Shield";
-    private int regenAmplifier;
-    private final EnergyHandler energyHandler;
+
     private final Set<UUID> holdingWeapon = new HashSet<>();
+
+    private int regenAmplifier;
+
+    private final EnergyHandler energyHandler;
     private final ClientManager clientManager;
     private final EffectManager effectManager;
 
@@ -74,38 +76,43 @@ public class GiantsBroadsword extends ChannelWeapon implements InteractWeapon, L
         return lore;
     }
 
-
     @Override
     public void activate(Player player) {
-        active.add(player.getUniqueId());
-        effectManager.addEffect(player, player, EffectTypes.REGENERATION, "Giants Broadsword", regenAmplifier, -1, true, true,
+        channel(player);
+        effectManager.addEffect(player, player, EffectTypes.REGENERATION, getSimpleName(), regenAmplifier, -1, true, true,
                 (livingEntity) -> {
                     if (livingEntity instanceof Player p) {
                         return p.getInventory().getItemInMainHand().getType() != getMaterial();
                     }
                     return false;
                 });
-
     }
 
     private void deactivate(Player player) {
-        effectManager.removeEffect(player, EffectTypes.REGENERATION, "Giants Broadsword");
+        effectManager.removeEffect(player, EffectTypes.REGENERATION, getSimpleName());
     }
 
     @UpdateEvent
-    public void doRegen() {
-        if (!enabled) {
+    public void doGiantsBroadsword() {
+        if (!isEnabled()) {
             return;
         }
-        final Iterator<UUID> iterator = active.iterator();
+
+        final Iterator<UUID> iterator = channelling.iterator();
         while (iterator.hasNext()) {
-            Player player = Bukkit.getPlayer(iterator.next());
+            final Player player = Bukkit.getPlayer(iterator.next());
             if (player == null) {
                 iterator.remove();
                 continue;
             }
 
-            if (player.getInventory().getItemInMainHand().getType() != getMaterial()) {
+            if (!isUsable(player)) {
+                iterator.remove();
+                deactivate(player);
+                continue;
+            }
+
+            if (!isHoldingWeapon(player)) {
                 iterator.remove();
                 deactivate(player);
                 continue;
@@ -118,16 +125,7 @@ public class GiantsBroadsword extends ChannelWeapon implements InteractWeapon, L
                 continue;
             }
 
-            var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, this, true));
-            if (checkUsageEvent.isCancelled()) {
-                UtilMessage.simpleMessage(player, "Restriction", "You cannot use this weapon here.");
-                iterator.remove();
-                deactivate(player);
-                continue;
-            }
-
             if (!canUse(player)) {
-                iterator.remove();
                 deactivate(player);
                 continue;
             }
@@ -146,25 +144,23 @@ public class GiantsBroadsword extends ChannelWeapon implements InteractWeapon, L
                     .extra(0.2f)
                     .receivers(60)
                     .spawn();
-
-
         }
 
         // Passive particles
         final Iterator<UUID> holders = holdingWeapon.iterator();
         while (holders.hasNext()) {
-            Player player = Bukkit.getPlayer(holders.next());
+            final Player player = Bukkit.getPlayer(holders.next());
             if (player == null) {
                 holders.remove();
                 continue;
             }
 
-            if (player.getInventory().getItemInMainHand().getType() != getMaterial()) {
+            if (!isHoldingWeapon(player)) {
                 holders.remove();
                 continue;
             }
 
-            if (active.contains(player.getUniqueId())) {
+            if (isChannelling(player)) {
                 continue; // Only skip if they're currently using the ability
             }
 
@@ -181,10 +177,12 @@ public class GiantsBroadsword extends ChannelWeapon implements InteractWeapon, L
 
     @EventHandler
     public void onSwapWeapon(PlayerItemHeldEvent event) {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
+
         final Player player = event.getPlayer();
+
         if (matches(player.getInventory().getItem(event.getNewSlot()))) {
             holdingWeapon.add(player.getUniqueId());
         } else {
@@ -193,16 +191,16 @@ public class GiantsBroadsword extends ChannelWeapon implements InteractWeapon, L
     }
 
     @EventHandler
-    public void onLeave(PlayerQuitEvent event) {
-        final boolean remove = active.remove(event.getPlayer().getUniqueId());
-        if (remove) {
+    @Override
+    public void onQuit(PlayerQuitEvent event) {
+        if (cancel(event.getPlayer())) {
             deactivate(event.getPlayer());
         }
     }
 
     @EventHandler(priority = EventPriority.LOW)
     public void onDamage(PreCustomDamageEvent event) {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -210,7 +208,7 @@ public class GiantsBroadsword extends ChannelWeapon implements InteractWeapon, L
         if (cde.getCause() != EntityDamageEvent.DamageCause.ENTITY_ATTACK) return;
         if (!(cde.getDamager() instanceof Player damager)) return;
         if (isHoldingWeapon(damager)) {
-            if (this.active.contains(damager.getUniqueId())) {
+            if (isChannelling(damager)) {
                 event.setCancelled(true);
                 return;
             }
@@ -219,18 +217,8 @@ public class GiantsBroadsword extends ChannelWeapon implements InteractWeapon, L
     }
 
     @Override
-    public boolean canUse(Player player) {
-        return true;
-    }
-
-    @Override
-    public double getEnergy() {
-        return initialEnergyCost;
-    }
-
-    @Override
     public boolean useShield(Player player) {
-        return active.contains(player.getUniqueId());
+        return isChannelling(player);
     }
 
     @Override

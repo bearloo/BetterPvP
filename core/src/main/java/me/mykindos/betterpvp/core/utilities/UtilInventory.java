@@ -11,12 +11,30 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.event.inventory.InventoryType;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class UtilInventory {
+
+    /**
+     * A list of inventories that do not store items. I.e. a crafting table or anvil
+     */
+    private static final List<InventoryType> INVENTORY_NO_STORE_TYPES = new ArrayList<>(List.of(
+            InventoryType.ANVIL,
+            InventoryType.WORKBENCH,
+            InventoryType.CRAFTING
+    ));
+
+    private static final List<InventoryType> INVENTORY_FURNACE_TYPES = new ArrayList<>(List.of(
+            InventoryType.FURNACE,
+            InventoryType.BLAST_FURNACE,
+            InventoryType.SMOKER
+    ));
 
     public static boolean isPlayerInventory(Player player, int containerId) {
         return containerId == -2 || ((CraftPlayer) player).getHandle().inventoryMenu.containerId == containerId;

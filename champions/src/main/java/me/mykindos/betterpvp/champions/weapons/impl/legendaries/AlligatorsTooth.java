@@ -7,10 +7,9 @@ import me.mykindos.betterpvp.core.client.gamer.Gamer;
 import me.mykindos.betterpvp.core.client.repository.ClientManager;
 import me.mykindos.betterpvp.core.combat.events.CustomDamageEvent;
 import me.mykindos.betterpvp.core.combat.events.PreCustomDamageEvent;
-import me.mykindos.betterpvp.core.combat.weapon.types.ChannelWeapon;
+import me.mykindos.betterpvp.core.combat.weapon.types.impl.ChannelWeaponImpl;
 import me.mykindos.betterpvp.core.combat.weapon.types.InteractWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.LegendaryWeapon;
-import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.energy.EnergyHandler;
 import me.mykindos.betterpvp.core.framework.updater.UpdateEvent;
 import me.mykindos.betterpvp.core.listener.BPvPListener;
@@ -38,7 +37,7 @@ import java.util.List;
 
 @Singleton
 @BPvPListener
-public class AlligatorsTooth extends ChannelWeapon implements InteractWeapon, LegendaryWeapon, Listener {
+public class AlligatorsTooth extends ChannelWeaponImpl implements InteractWeapon, LegendaryWeapon, Listener {
 
     private static final String ABILITY_NAME = "Gator Stroke";
 
@@ -72,18 +71,23 @@ public class AlligatorsTooth extends ChannelWeapon implements InteractWeapon, Le
 
     @Override
     public void activate(Player player) {
-        active.add(player.getUniqueId());
+        channel(player);
     }
 
     @UpdateEvent
     public void doAlligatorsTooth() {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
 
-        active.removeIf(uuid -> {
+        channelling.removeIf(uuid -> {
             Player player = Bukkit.getPlayer(uuid);
             if (player == null) return true;
+
+            if (!isUsable(player)) {
+                activeUsageNotifications.remove(player.getUniqueId());
+                return true;
+            }
 
             if (!isHoldingWeapon(player)) {
                 activeUsageNotifications.remove(player.getUniqueId());
@@ -92,13 +96,6 @@ public class AlligatorsTooth extends ChannelWeapon implements InteractWeapon, Le
 
             final Gamer gamer = clientManager.search().online(player).getGamer();
             if (!gamer.isHoldingRightClick()) {
-                activeUsageNotifications.remove(player.getUniqueId());
-                return true;
-            }
-
-            var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, this, true));
-            if (checkUsageEvent.isCancelled()) {
-                UtilMessage.simpleMessage(player, "Restriction", "You cannot use this weapon here.");
                 activeUsageNotifications.remove(player.getUniqueId());
                 return true;
             }
@@ -127,7 +124,7 @@ public class AlligatorsTooth extends ChannelWeapon implements InteractWeapon, Le
 
     @EventHandler(priority = EventPriority.LOW)
     public void onDamage(PreCustomDamageEvent event) {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
 
@@ -146,7 +143,7 @@ public class AlligatorsTooth extends ChannelWeapon implements InteractWeapon, Le
 
     @UpdateEvent(delay = 1000)
     public void onOxygendDrain() {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -167,12 +164,6 @@ public class AlligatorsTooth extends ChannelWeapon implements InteractWeapon, Le
         }
         activeUsageNotifications.remove(player.getUniqueId());
         return true;
-    }
-
-
-    @Override
-    public double getEnergy() {
-        return initialEnergyCost;
     }
 
     @Override

@@ -82,11 +82,6 @@ public class Scepter extends Weapon implements InteractWeapon, CooldownWeapon, L
     }
 
     @Override
-    public boolean canUse(Player player) {
-        return true;
-    }
-
-    @Override
     public double getCooldown() {
         return cooldown;
     }

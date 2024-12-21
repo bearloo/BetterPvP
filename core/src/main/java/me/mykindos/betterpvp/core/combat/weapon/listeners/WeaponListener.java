@@ -11,7 +11,6 @@ import me.mykindos.betterpvp.core.combat.weapon.types.ChannelWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.CooldownWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.InteractWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.LegendaryWeapon;
-import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.components.champions.weapons.IWeapon;
 import me.mykindos.betterpvp.core.cooldowns.CooldownManager;
 import me.mykindos.betterpvp.core.energy.EnergyHandler;
@@ -125,9 +124,7 @@ public class WeaponListener implements Listener {
             }
         }
 
-        var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, weapon, true));
-        if (checkUsageEvent.isCancelled()) {
-            UtilMessage.simpleMessage(player, "Restriction", "You cannot use this weapon here.");
+        if (!weapon.isUsable(player)) {
             return;
         }
 
@@ -160,7 +157,6 @@ public class WeaponListener implements Listener {
         if (weapon instanceof InteractWeapon interactWeapon) {
             interactWeapon.activate(player);
         }
-
     }
 
     @EventHandler

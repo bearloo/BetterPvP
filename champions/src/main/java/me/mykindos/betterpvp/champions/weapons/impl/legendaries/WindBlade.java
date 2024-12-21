@@ -7,10 +7,9 @@ import me.mykindos.betterpvp.core.client.gamer.Gamer;
 import me.mykindos.betterpvp.core.client.repository.ClientManager;
 import me.mykindos.betterpvp.core.combat.events.CustomDamageEvent;
 import me.mykindos.betterpvp.core.combat.events.PreCustomDamageEvent;
-import me.mykindos.betterpvp.core.combat.weapon.types.ChannelWeapon;
+import me.mykindos.betterpvp.core.combat.weapon.types.impl.ChannelWeaponImpl;
 import me.mykindos.betterpvp.core.combat.weapon.types.InteractWeapon;
 import me.mykindos.betterpvp.core.combat.weapon.types.LegendaryWeapon;
-import me.mykindos.betterpvp.core.components.champions.events.PlayerUseItemEvent;
 import me.mykindos.betterpvp.core.energy.EnergyHandler;
 import me.mykindos.betterpvp.core.framework.updater.UpdateEvent;
 import me.mykindos.betterpvp.core.listener.BPvPListener;
@@ -36,11 +35,12 @@ import java.util.List;
 
 @Singleton
 @BPvPListener
-public class WindBlade extends ChannelWeapon implements InteractWeapon, LegendaryWeapon, Listener {
+public class WindBlade extends ChannelWeaponImpl implements InteractWeapon, LegendaryWeapon, Listener {
 
     private static final String ABILITY_NAME = "Flight";
 
     private double velocityStrength;
+
     private final EnergyHandler energyHandler;
     private final ClientManager clientManager;
 
@@ -67,15 +67,16 @@ public class WindBlade extends ChannelWeapon implements InteractWeapon, Legendar
 
     @Override
     public void activate(Player player) {
-        active.add(player.getUniqueId());
+       channel(player);
     }
 
     @UpdateEvent (priority = 100)
     public void doWindBlade() {
-        if (!enabled) {
+        if (!isEnabled()) {
             return;
         }
-        active.removeIf(uuid -> {
+
+        channelling.removeIf(uuid -> {
             Player player = Bukkit.getPlayer(uuid);
             if (player == null) return true;
 
@@ -90,9 +91,7 @@ public class WindBlade extends ChannelWeapon implements InteractWeapon, Legendar
                 return true;
             }
 
-            var checkUsageEvent = UtilServer.callEvent(new PlayerUseItemEvent(player, this, true));
-            if (checkUsageEvent.isCancelled()) {
-                UtilMessage.simpleMessage(player, "Restriction", "You cannot use this weapon here.");
+            if (!isUsable(player)) {
                 activeUsageNotifications.remove(player.getUniqueId());
                 return true;
             }
